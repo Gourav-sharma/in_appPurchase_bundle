@@ -175,15 +175,7 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
   }
 
   Future<void> _onPurchaseUpdate(PurchaseUpdateEvent event, Emitter<SubscriptionState> emit) async {
-    int? selectedIndex;
-    for (var i = 0; i < state.products.length; i++) {
-      for (var purchase in event.purchases) {
-        if (purchase.productID == state.products[i].id) {
-          selectedIndex = i;
-          break;
-        }
-      }
-    }
+
     for (var purchase in event.purchases) {
       if (purchase.status == PurchaseStatus.purchased) {
         service.inAppPurchase.completePurchase(purchase);
@@ -223,9 +215,7 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
           }
           emit(state.copyWith(loader: false, isClicked: false));
           break;
-        default:
-          break;
-      }
+        }
     }
 
   }
