@@ -107,10 +107,7 @@ class SubscriptionService {
       }
     } on PlatformException catch (e) {
       if (e.toString().contains('storekit_duplicate_product_object')) {
-        CommonUtilMethods.showSnackBar(
-            context: context,
-            message: "A subscription change is already in progress. Please wait."
-        );
+        AppLogs.showErrorLogs("Purchase issue: $e");
       } else {
         CommonUtilMethods.showSnackBar(
             context: context,
@@ -139,18 +136,12 @@ class SubscriptionService {
         if (purchaseDetail != null) {
           await inAppPurchase.completePurchase(purchaseDetail);
         }
-        CommonUtilMethods.showSnackBar(
-            context: context,
-            message: "A subscription change is already in progress. Please wait."
-        );
+        AppLogs.showErrorLogs("Purchase issue: $message");
       }
     } else {
       if (message.toString().contains('SKErrorDomain')) {
       } else {
-        CommonUtilMethods.showSnackBar(
-            context: context,
-            message: "Purchase Failed: $message"
-        );
+        AppLogs.showErrorLogs("Purchase issue: $message");
       }
       if (purchaseDetail != null) {
         await inAppPurchase.completePurchase(purchaseDetail);

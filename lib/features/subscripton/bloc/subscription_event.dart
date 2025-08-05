@@ -66,3 +66,8 @@ class SaveSubscriptionEvent extends SubscriptionEvent {
     this.completer,
   });
 }
+
+class ChangeSelectedItemEvent extends SubscriptionEvent {
+  final int selectedItem;
+  ChangeSelectedItemEvent(this.selectedItem);
+}

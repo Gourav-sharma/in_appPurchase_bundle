@@ -30,7 +30,7 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
     on<GetOldPurchaseEvent>(getOldPurchaseEvent);
     on<DowngradeOrUpgradeEvent>(downgradeOrUpgradeEvent);
     on<SaveSubscriptionEvent>(saveSubscriptionEvent);
-
+    on<ChangeSelectedItemEvent>(_changeSelectedItem);
   }
 
  Future<void> initEvent(SubscriptionInitEvent event, Emitter<SubscriptionState> emit) async {
@@ -264,7 +264,7 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
 
     try {
       ApiResponse response = await ApiRepository.apiCall(
-          event.saveSubscriptionApiUrl??"",
+          event.saveSubscriptionApiUrl,
           RequestType.post,
           data: event.subsRequest
       );
@@ -276,13 +276,11 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
 
   }
 
-
-
-  void changeSelectedItem(int i) {
+  Future<void> _changeSelectedItem(ChangeSelectedItemEvent event, Emitter<SubscriptionState> emit)async {
     emit(state.copyWith(
-        selectedItem: i,
-        selectedProductId: state.subscriptionProducts[i].id,
-        currentSubscriptionId: state.subscriptionProducts[i].id
+        selectedItem: event.selectedItem,
+        selectedProductId: state.subscriptionProducts[event.selectedItem].id,
+        currentSubscriptionId: state.subscriptionProducts[event.selectedItem].id
     ));
   }
 
