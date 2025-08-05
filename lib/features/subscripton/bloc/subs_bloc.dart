@@ -106,13 +106,11 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
     final QueryPurchaseDetailsResponse response = await androidAddition.queryPastPurchases();
 
     if (response.error != null) {
-      print('Android: Error fetching past purchases: ${response.error}');
       return;
     }
     if (response.pastPurchases.isNotEmpty) {
 
       for (var purchase in response.pastPurchases) {
-        print("past purchase product id: ${purchase.productID}");
         if (purchase.status == PurchaseStatus.purchased) {
           emit(state.copyWith(purchases: response.pastPurchases,pastSubscriptionId: purchase.productID));
           break;
@@ -129,7 +127,6 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
     if(event.restore==true){
       if(state.isSubscribed == false){
         ProductDetails purchaseProduct = await service.selectedPlan(state.subsExpiryDate,state.products,state.selectedItem);
-        print("purchaseProduct: ${purchaseProduct.price}");
         await service.inAppPurchase.restorePurchases();
       }else{
         CommonUtilMethods.showSnackBar(
@@ -139,7 +136,6 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
       }
     }else{
       ProductDetails purchaseProduct = await service.selectedPlan(state.subsExpiryDate,state.products,state.selectedItem);
-      print("purchaseProduct: ${purchaseProduct.price}");
 
       await service.buyProduct(
           purchaseProduct
@@ -151,10 +147,10 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
   Future<void> downgradeOrUpgradeEvent(DowngradeOrUpgradeEvent event,Emitter<SubscriptionState> emit) async {
     emit(state.copyWith(isClicked: true,loader: true));
     final oldProductId = state.pastSubscriptionId;
-    print("oldProductId: $oldProductId");
-    print("state.selectedItem: ${state.selectedItem}");
+    AppLogs.showInfoLogs("oldProductId: $oldProductId");
+    AppLogs.showInfoLogs("state.selectedItem: ${state.selectedItem}");
     ProductDetails purchaseProduct = await service.selectedPlan(state.subsExpiryDate,state.products,state.selectedItem);
-    print("purchaseProduct: ${purchaseProduct.price}");
+    AppLogs.showInfoLogs("purchaseProduct: ${purchaseProduct.price}");
 
     if(state.selectedProductId==oldProductId){
       CommonUtilMethods.showSnackBar(
@@ -208,13 +204,17 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
           break;
         case PurchaseStatus.error:
           await service.handlePurchaseError(context: context, purchaseDetails: purchase);
-          emit(state.copyWith(loader: false, isClicked: false));
+          if(context.mounted) {
+            emit(state.copyWith(loader: false, isClicked: false));
+          }
           break;
         case PurchaseStatus.canceled:
           if (Platform.isIOS) {
             await service.inAppPurchase.completePurchase(purchase);
           }
-          emit(state.copyWith(loader: false, isClicked: false));
+          if(context.mounted) {
+            emit(state.copyWith(loader: false, isClicked: false));
+          }
           break;
         }
     }
@@ -239,7 +239,7 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
 
   Future<void> verifyPurchaseEvent(VerifyPurchaseEvent event, Emitter<SubscriptionState> emit) async {
     try {
-      print(
+      AppLogs.showInfoLogs(
           "purchase receipt::::::::${Platform.isAndroid ? event.purchaseDetails.verificationData.serverVerificationData : event.purchaseDetails.verificationData.localVerificationData}");
       if (event.purchaseDetails.status == PurchaseStatus.purchased || event.purchaseDetails.status == PurchaseStatus.restored) {
         SubscriptionRequest subsRequest = SubscriptionRequest(
@@ -257,22 +257,23 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
       }
 
     } catch (e, s) {
-      print("purchase error::::::::$e stack trace::::$s");
+      AppLogs.showErrorLogs("purchase error::::::::$e stack trace::::$s");
     }
   }
 
   Future<void> saveSubscriptionEvent(SaveSubscriptionEvent event, Emitter<SubscriptionState> emit,) async {
 
     try {
-      ApiResponse response = await ApiRepository.apiCall(
+       await ApiRepository.apiCall(
           event.saveSubscriptionApiUrl,
           RequestType.post,
           data: event.subsRequest
       );
-      event.completer?.complete(response.data);
+       if(context.mounted) {
+         Navigator.of(context).pop();
+       }
     } catch (e) {
-      event.completer?.complete({"status": false, "message": e.toString()});
-      // await NativeLogger.logTo("Subscription not purchased : ${e.toString()}");
+      AppLogs.showErrorLogs(e.toString());
     }
 
   }
