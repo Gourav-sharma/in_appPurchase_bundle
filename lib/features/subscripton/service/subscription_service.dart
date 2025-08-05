@@ -109,10 +109,7 @@ class SubscriptionService {
       if (e.toString().contains('storekit_duplicate_product_object')) {
         AppLogs.showErrorLogs("Purchase issue: $e");
       } else {
-        CommonUtilMethods.showSnackBar(
-            context: context,
-            message: "Purchase Failed: $e"
-        );
+        AppLogs.showErrorLogs("Purchase issue: $e");
       }
       AppLogs.showErrorLogs("Purchase issue: $e");
     }
@@ -234,7 +231,6 @@ class ExamplePaymentQueueDelegate implements SKPaymentQueueDelegateWrapper {
     return false;
   }
 
-  @override
   void paymentQueue(SKPaymentQueueWrapper queue, SKPaymentTransactionWrapper transaction) {
     // You can add more detailed handling here if necessary
     if (transaction.transactionState == SKPaymentTransactionStateWrapper.purchased) {

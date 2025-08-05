@@ -58,11 +58,12 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
     if(Platform.isIOS){products.sort((a, b) => a.rawPrice.compareTo(b.rawPrice));}
 
     if(checkSubscriptionData?["data"]["isSubscribed"]==true){
-      for (int i = 0; i < products.length; i++)
+      for (int i = 0; i < products.length; i++){
         for (int j = 0; j < subscriptionProductIds.length; j++) {
-        if (products[i].id == subscriptionProductIds[j] && products[i].price != "Free" && products[i].rawPrice != 0.0) {
-          emit(state.copyWith(selectedItem: i));
-          break;
+          if (products[i].id == subscriptionProductIds[j] && products[i].price != "Free" && products[i].rawPrice != 0.0) {
+            emit(state.copyWith(selectedItem: i));
+            break;
+          }
         }
       }
     }
