@@ -11,7 +11,6 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
   final List<String> subscriptionProductIds;
   GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
 
-  final bool _isAvailable = false;
   final InAppPurchase inAppPurchase = InAppPurchase.instance;
   StreamSubscription<List<PurchaseDetails>>? subscription;
   late  PurchaseDetails purchaseDetail;

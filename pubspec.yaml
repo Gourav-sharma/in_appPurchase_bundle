@@ -24,6 +24,7 @@ dependencies:
   http_parser: ^4.1.2
   project_setup: ^0.0.12
   in_app_purchase: ^3.2.1
+  in_app_purchase_storekit: ^0.4.3
 
 dev_dependencies:
   flutter_test:
