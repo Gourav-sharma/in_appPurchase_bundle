@@ -153,21 +153,24 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
     AppLogs.showInfoLogs("purchaseProduct: ${purchaseProduct.price}");
 
     if(state.selectedProductId==oldProductId){
-      CommonUtilMethods.showSnackBar(
-          context: event.context,
-          message: "You are already subscribed to this plan."
-      );
-
-      emit(state.copyWith(loader: false));
+      if(context.mounted){
+        CommonUtilMethods.showSnackBar(
+            context: event.context,
+            message: "You are already subscribed to this plan."
+        );
+        emit(state.copyWith(loader: false));
+      }
       return;
     }
 
-    await service.downgradeOrUpgrade(
-      context: event.context,
-      newProduct: purchaseProduct,
-      currentPurchases: state.purchases,
-      oldProductId: oldProductId,
-    );
+    if(context.mounted){
+      await service.downgradeOrUpgrade(
+        context: event.context,
+        newProduct: purchaseProduct,
+        currentPurchases: state.purchases,
+        oldProductId: oldProductId,
+      );
+    }
 
   }
 
