@@ -1,7 +1,9 @@
 name: in_app_subscription_bundle
 description: "A new Flutter project."
 version: 0.0.1
-homepage:
+homepage: https://github.com/Gourav-sharma/in_appPurchase_bundle
+repository: https://github.com/Gourav-sharma/pin_appPurchase_bundle
+issue_tracker: https://github.com/Gourav-sharma/in_appPurchase_bundle/issues
 
 environment:
   sdk: ^3.8.1
