@@ -126,7 +126,6 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
     emit(state.copyWith(isClicked: true,loader: true));
     if(event.restore==true){
       if(state.isSubscribed == false){
-        ProductDetails purchaseProduct = await service.selectedPlan(state.subsExpiryDate,state.products,state.selectedItem);
         await service.inAppPurchase.restorePurchases();
       }else{
         CommonUtilMethods.showSnackBar(
