@@ -251,6 +251,7 @@ class ExamplePaymentQueueDelegate implements SKPaymentQueueDelegateWrapper {
 
   void paymentQueue(SKPaymentQueueWrapper queue, SKPaymentTransactionWrapper transaction) {
     // You can add more detailed handling here if necessary
+
     if (transaction.transactionState == SKPaymentTransactionStateWrapper.purchased) {
       // Complete the purchase on success
     } else if (transaction.transactionState == SKPaymentTransactionStateWrapper.failed) {

@@ -1,4 +1,6 @@
 
+import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
+
 import '../../../in_app_subscription_bundle.dart';
 
 class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
@@ -57,14 +59,12 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
    });
    List<ProductDetails>? products = subscriptionProducts;
    if(Platform.isIOS){products.sort((a, b) => a.rawPrice.compareTo(b.rawPrice));}
+   AppLogs.showInfoLogs("products length: ${products.length}");
    for (int i = 0; i < products.length; i++) {
      AppLogs.showInfoLogs("product id ::${products[i].id}");
      AppLogs.showInfoLogs("product title ::${products[i].title}");
-     AppLogs.showInfoLogs("product description ::${products[i].description}");
      AppLogs.showInfoLogs("product price ::${products[i].price}");
      AppLogs.showInfoLogs("product rawPrice ::${products[i].rawPrice}");
-     AppLogs.showInfoLogs("product currencyCode ::${products[i].currencyCode}");
-     AppLogs.showInfoLogs("product currencySymbol ::${products[i].currencySymbol}");
    }
    // save products to state
    List<SubscriptionProducts> subscriptionItems = products.map((product) {
@@ -161,6 +161,11 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
     //get old purchase from android
     if (Platform.isAndroid) {
       add(GetOldPurchaseEvent());
+    }else{
+      final InAppPurchaseStoreKitPlatformAddition iosPlatformAddition =
+      inAppPurchase.getPlatformAddition<InAppPurchaseStoreKitPlatformAddition>();
+      await iosPlatformAddition.setDelegate(ExamplePaymentQueueDelegate());
+
     }
 
   }
@@ -177,25 +182,33 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
     if (response.pastPurchases.isNotEmpty) {
       for (int i = 0; i < response.pastPurchases.length; i++) {
         final purchasedProductId = response.pastPurchases[i].productID;
+        final data = jsonDecode(response.pastPurchases[i].billingClientPurchase.originalJson);
+        AppLogs.showInfoLogs("Purchase JSON: $data");
+        final isAutoRenewing = data['autoRenewing'] ?? false;
 
         if (response.pastPurchases[i].status == PurchaseStatus.purchased) {
-          // Find matching index from state.products
-          final matchedIndex = state.products.indexWhere((p) => p.id == purchasedProductId);
 
+          final paidIndex = state.products.indexWhere((p) => p.id == purchasedProductId);
+          AppLogs.showInfoLogs("paidIndex: $paidIndex");
+          AppLogs.showInfoLogs("purchasedProductId: ${response.pastPurchases[i].productID}");
           emit(state.copyWith(
-            isSubscribed: true,
+            isSubscribed: isAutoRenewing == true ? true : false,
             purchases: response.pastPurchases,
+            selectedProductId: purchasedProductId,
             pastSubscriptionId: purchasedProductId,
-            selectedItem: matchedIndex != -1 ? matchedIndex : state.selectedItem,
+            selectedItem: isAutoRenewing == true ? paidIndex : 0,
           ));
 
-          AppLogs.showInfoLogs("✅ Active subscription");
+          AppLogs.showInfoLogs("${isAutoRenewing == true ? "✅ Active subscription" : "❌ Inactive subscription"}");
           AppLogs.showInfoLogs("purchasedId: $purchasedProductId");
-          AppLogs.showInfoLogs("matchedIndex: $matchedIndex");
+          AppLogs.showInfoLogs("paidIndex (UI index): $paidIndex");
+
+          break; // stop after first match
         }
       }
     }
-  }
+
+ }
 
 
   // buy first time subscription
@@ -233,10 +246,6 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
     AppLogs.showInfoLogs("oldProductId: $oldProductId");
     AppLogs.showInfoLogs("state.selectedItem: ${state.selectedItem}");
     AppLogs.showInfoLogs("state.selectedProductId: ${state.selectedProductId}");
-    ProductDetails purchaseProduct = await service.selectedPlan(state.subsExpiryDate,state.products,state.selectedItem,
-        subscriptionProductIds,state.purchases);
-    AppLogs.showInfoLogs("purchaseProduct: ${purchaseProduct.price}");
-
     if(state.selectedProductId==oldProductId){
       if(context.mounted){
         CommonUtilMethods.showSnackBar(
@@ -247,6 +256,9 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
       }
       return;
     }
+    ProductDetails purchaseProduct = await service.selectedPlan(state.subsExpiryDate,state.products,state.selectedItem,
+        subscriptionProductIds,state.purchases);
+    AppLogs.showInfoLogs("purchaseProduct: ${purchaseProduct.price}");
 
     if(context.mounted){
       await service.downgradeOrUpgrade(
@@ -382,7 +394,7 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
   Future<void> _changeSelectedItem(ChangeSelectedItemEvent event, Emitter<SubscriptionState> emit)async {
     emit(state.copyWith(
         selectedItem: event.selectedItem,
-        selectedProductId: state.subscriptionProducts[event.selectedItem].id,
+        selectedProductId: event.productId??"",
         currentSubscriptionId: state.subscriptionProducts[event.selectedItem].id
     ));
   }

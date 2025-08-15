@@ -69,5 +69,6 @@ class SaveSubscriptionEvent extends SubscriptionEvent {
 
 class ChangeSelectedItemEvent extends SubscriptionEvent {
   final int selectedItem;
-  ChangeSelectedItemEvent(this.selectedItem);
+  final String? productId;
+  ChangeSelectedItemEvent(this.selectedItem,{this.productId});
 }
