@@ -57,7 +57,15 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
    });
    List<ProductDetails>? products = subscriptionProducts;
    if(Platform.isIOS){products.sort((a, b) => a.rawPrice.compareTo(b.rawPrice));}
-
+   for (int i = 0; i < products.length; i++) {
+     AppLogs.showInfoLogs("product id ::${products[i].id}");
+     AppLogs.showInfoLogs("product title ::${products[i].title}");
+     AppLogs.showInfoLogs("product description ::${products[i].description}");
+     AppLogs.showInfoLogs("product price ::${products[i].price}");
+     AppLogs.showInfoLogs("product rawPrice ::${products[i].rawPrice}");
+     AppLogs.showInfoLogs("product currencyCode ::${products[i].currencyCode}");
+     AppLogs.showInfoLogs("product currencySymbol ::${products[i].currencySymbol}");
+   }
    // save products to state
    List<SubscriptionProducts> subscriptionItems = products.map((product) {
      return SubscriptionProducts(
@@ -82,64 +90,106 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
      selectedProductId: productsResponse.products?[state.selectedItem].id,
    ));
 
-   bool isActive = false;
+     Map<String, dynamic>? checkSubscriptionData ;
+    if(checkSubscriptionApi.isNotEmpty) {
+      checkSubscriptionData = await service
+          .checkSubscription(
+          apiType: checkSubscriptonApiRequestType,
+          apiUrl: checkSubscriptionApi
+      );
+    }
 
-    //check subscription
-   if(checkSubscriptionApi.isNotEmpty){
-     final Map<String, dynamic>? checkSubscriptionData = await service.checkSubscription(
-         apiType: checkSubscriptonApiRequestType,
-         apiUrl: checkSubscriptionApi
-     );
+    // Group by productId
+    final Map<String, List<ProductDetails>> grouped = {};
+    for (var product in subscriptionProducts) {
+      grouped.putIfAbsent(product.id, () => []).add(product);
+    }
 
-     if(checkSubscriptionData != null){
-       isActive = checkSubscriptionData["data"]["isActive"] == true;
-     }
+// Pick preferred version (free trial if first time, paid if not)
+   List<ProductDetails> filteredProducts = [];
+   for (var entry in grouped.entries) {
+     bool hasPurchasedBefore = state.purchases.any((p) => p.productID == entry.key);
 
-     if (isActive) {
-       AppLogs.showInfoLogs("✅ Active subscription");
+     if (!hasPurchasedBefore) {
+       // First time: pick free trial if available
+       filteredProducts.add(
+           entry.value.firstWhere(
+                   (p) => p.price == "Free" && p.rawPrice == 0.0,
+               orElse: () => entry.value.first
+           )
+       );
+     } else {
+       // Returning: pick paid version
+       filteredProducts.add(
+           entry.value.firstWhere(
+                   (p) => p.price != "Free" && p.rawPrice > 0.0,
+               orElse: () => entry.value.first
+           )
+       );
        emit(state.copyWith( isSubscribed: true,
          subscriptionType: checkSubscriptionData?["data"]["subscriptionType"]?? 1,
          subsExpiryDate: checkSubscriptionData?["data"]["expiryDate"]?? "",));
-       int? matchedIndex;
-
-       for (int i = 0; i < products.length; i++) {
-         for (int j = 0; j < subscriptionProductIds.length; j++) {
-           if (products[i].id == subscriptionProductIds[j]) {
-             // Prefer paid subscriptions if available
-             if (products[i].price != "Free" && products[i].rawPrice != 0.0) {
-               matchedIndex = i;
-               break; // Found paid version
-             } else {
-               matchedIndex ??= i;
-             }
-           }
-         }
-       }
-       if (matchedIndex != null) {
-         emit(state.copyWith(selectedItem: matchedIndex));
-       }
-     } else {
-       AppLogs.showErrorLogs("❌ Inactive subscription");
-
-       for (int i = 0; i < products.length; i++) {
-         for (int j = 0; j < subscriptionProductIds.length; j++) {
-           if (products[i].price != "Free" &&
-               products[i].rawPrice != 0.0) {
-             AppLogs.showInfoLogs("products.length: ${products.length}");
-             AppLogs.showInfoLogs("subscriptionProductIds.length: ${subscriptionProductIds.length}");
-             AppLogs.showInfoLogs("products[i].id: ${products[i].id}");
-             AppLogs.showInfoLogs("products[i].price: ${products[i].price}");
-             AppLogs.showInfoLogs("products[i].rawPrice: ${products[i].rawPrice}");
-             if(products[i].id == subscriptionProductIds[0]){
-
-             }
-             break;
-           }
-
-         }
-       }
      }
    }
+
+   bool isActive = false;
+
+    //check subscription
+   // if(checkSubscriptionApi.isNotEmpty){
+   //   final Map<String, dynamic>? checkSubscriptionData = await service.checkSubscription(
+   //       apiType: checkSubscriptonApiRequestType,
+   //       apiUrl: checkSubscriptionApi
+   //   );
+   //
+   //   if(checkSubscriptionData != null){
+   //     isActive = checkSubscriptionData["data"]["isActive"] == true;
+   //   }
+   //
+   //   if (isActive) {
+   //     AppLogs.showInfoLogs("✅ Active subscription");
+   //     emit(state.copyWith( isSubscribed: true,
+   //       subscriptionType: checkSubscriptionData?["data"]["subscriptionType"]?? 1,
+   //       subsExpiryDate: checkSubscriptionData?["data"]["expiryDate"]?? "",));
+   //     int? matchedIndex;
+   //
+   //     for (int i = 0; i < products.length; i++) {
+   //       for (int j = 0; j < subscriptionProductIds.length; j++) {
+   //         if (products[i].id == subscriptionProductIds[j]) {
+   //           // Prefer paid subscriptions if available
+   //           if (products[i].price != "Free" && products[i].rawPrice != 0.0) {
+   //             matchedIndex = i;
+   //             break; // Found paid version
+   //           } else {
+   //             matchedIndex ??= i;
+   //           }
+   //         }
+   //       }
+   //     }
+   //     if (matchedIndex != null) {
+   //       emit(state.copyWith(selectedItem: matchedIndex));
+   //     }
+   //   } else {
+   //     AppLogs.showErrorLogs("❌ Inactive subscription");
+   //
+   //     for (int i = 0; i < products.length; i++) {
+   //       for (int j = 0; j < subscriptionProductIds.length; j++) {
+   //         if (products[i].price != "Free" &&
+   //             products[i].rawPrice != 0.0) {
+   //           AppLogs.showInfoLogs("products.length: ${products.length}");
+   //           AppLogs.showInfoLogs("subscriptionProductIds.length: ${subscriptionProductIds.length}");
+   //           AppLogs.showInfoLogs("products[i].id: ${products[i].id}");
+   //           AppLogs.showInfoLogs("products[i].price: ${products[i].price}");
+   //           AppLogs.showInfoLogs("products[i].rawPrice: ${products[i].rawPrice}");
+   //           if(products[i].id == subscriptionProductIds[0]){
+   //
+   //           }
+   //           break;
+   //         }
+   //
+   //       }
+   //     }
+   //   }
+   // }
 
     emit(state.copyWith(loader: false));
 
@@ -187,8 +237,9 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
     }else{
 
 
-      ProductDetails purchaseProduct = await service.selectedPlan(state.subsExpiryDate,state.products,state.selectedItem,
-          subscriptionProductIds);
+      ProductDetails purchaseProduct = await service.selectedPlan(state.subsExpiryDate,
+          state.products,state.selectedItem,
+          subscriptionProductIds,state.purchases);
 
       await service.buyProduct(
           purchaseProduct
@@ -202,7 +253,8 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
     final oldProductId = state.pastSubscriptionId;
     AppLogs.showInfoLogs("oldProductId: $oldProductId");
     AppLogs.showInfoLogs("state.selectedItem: ${state.selectedItem}");
-    ProductDetails purchaseProduct = await service.selectedPlan(state.subsExpiryDate,state.products,state.selectedItem,subscriptionProductIds);
+    ProductDetails purchaseProduct = await service.selectedPlan(state.subsExpiryDate,state.products,state.selectedItem,
+        subscriptionProductIds,state.purchases);
     AppLogs.showInfoLogs("purchaseProduct: ${purchaseProduct.price}");
 
     if(state.selectedProductId==oldProductId){

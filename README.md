@@ -30,18 +30,16 @@ import 'package:in_app_subscription_bundle/in_app_subscription_bundle.dart';
 Wrap your app or screen with `BlocProvider` to provide access to `SubsBlocNew`:
 
 ```dart
-BlocProvider(
-  create: (context) => SubsBlocNew(
-    context: context,
-    checkSubscriptionApi: 'YOUR_CHECK_SUBSCRIPTION_API_URL',
-    checkSubscriptonApiRequestType: RequestType.get,
-    saveSubscriptionApiUrl: 'YOUR_SAVE_SUBSCRIPTION_API_URL',
-    subscriptionProductIds: ['product_1', 'product_2'],
-  )..add(SubscriptionInitEvent(context: context)),
-  child: MaterialApp(
-    home: SubscriptionPage(),
-  ),
-);
+Widget build(BuildContext context) {
+  return BlocProvider(
+    create: (context) => SubsBlocNew(
+      context: context,
+      checkSubscriptionApi: "",
+      subscriptionProductIds: ["monthly_plan", "yearly_plan"],
+    ),
+    child: const SubscriptionPage(),
+  );
+}
 ```
 
 ### Step 3: Build the UI with BLoC

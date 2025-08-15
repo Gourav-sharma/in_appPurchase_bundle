@@ -180,56 +180,52 @@ class SubscriptionService {
     return map;
   }
 
-  Future<ProductDetails> selectedPlan(String expiryDate, List<ProductDetails> products, int selectedItem, List<String> subscriptionProductIds) async {
+  Future<ProductDetails> selectedPlan(String expiryDate, List<ProductDetails> products,
+      int selectedItem, List<String> subscriptionProductIds, List<PurchaseDetails> pastPurchases) async {
     late ProductDetails productDetails;
-    AppLogs.showErrorLogs("selectedItem: $selectedItem");
+    AppLogs.showInfoLogs("selectedItem id: ${products[selectedItem].id}");
     if (Platform.isAndroid) {
-      if (expiryDate.isNotEmpty) {
-
-        for (int i = 0; i < products.length; i++) {
-          if (products[i].price != "Free" && products[i].rawPrice != 0.0) {
-          for (int j = 0; j < subscriptionProductIds.length; j++) {
-            if (products[i].id == subscriptionProductIds[j]) {
-              // Prefer paid subscriptions if available
-                productDetails = products[i];
-              }
-            }
-          }
-        }
-
-        // for (int i = 0; i < products.length; i++) {
-        //   if (products[i].id == selectedId) {
-        //     if (products[i].price != "Free" && products[i].rawPrice != 0.0) {
-        //       productDetails = products[i];
-        //     }
-        //   }
-        // }
+      if(pastPurchases.isNotEmpty){
+        productDetails = products.where((p) => p.id == products[selectedItem].id &&
+        p.price != "Free" && p.rawPrice != 0.0).first;
       }else{
-        for (int i = 0; i < products.length; i++) {
-          for (int j = 0; j < subscriptionProductIds.length; j++) {
-            if (products[i].id == subscriptionProductIds[j]) {
-              // Prefer paid subscriptions if available
-              if (products[i].price == "Free" && products[i].rawPrice == 0.0) {
-                productDetails = products[i];
-
-              }
-            }
-          }
-        }
-        // for (int i = 0; i < products.length; i++) {
-        //   if (products[i].id == selectedId) {
-        //     if (products[i].price == "Free" || products[i].rawPrice == 0.0) {
-        //       productDetails = products[i];
-        //     }
-        //   }
-        // }
+        productDetails = products.where((p) => p.id == products[selectedItem].id).first;
       }
     }else{
-      productDetails = products[selectedItem];
+      productDetails = products.where((p) => p.id == products[selectedItem].id).first;
     }
 
     return productDetails;
   }
+
+  // Future<ProductDetails> selectedPlan(
+  //     String expiryDate,
+  //     List<ProductDetails> products,
+  //     int selectedItem,
+  //     List<String> subscriptionProductIds,
+  //     List<PurchaseDetails> pastPurchases
+  //     ) async {
+  //   final id = subscriptionProductIds[selectedItem];
+  //
+  //   // Make sure this is typed as List<ProductDetails>
+  //   final List<ProductDetails> planProducts =
+  //   products.where((p) => p.id == id).toList();
+  //
+  //   bool hasPurchasedBefore = pastPurchases.any((p) => p.productID == id);
+  //
+  //   if (!hasPurchasedBefore) {
+  //     return planProducts.firstWhere(
+  //             (p) => p.price == "Free" && p.rawPrice == 0.0,
+  //         orElse: () => planProducts.isNotEmpty ? planProducts.first : throw Exception("No product found")
+  //     );
+  //   } else {
+  //     return planProducts.firstWhere(
+  //             (p) => p.price != "Free" && p.rawPrice > 0.0,
+  //         orElse: () => planProducts.isNotEmpty ? planProducts.first : throw Exception("No product found")
+  //     );
+  //   }
+  // }
+
 
   void listenToPurchaseUpdates(Function(List<PurchaseDetails>) onUpdate) {
     subscription = inAppPurchase.purchaseStream.listen(onUpdate);
