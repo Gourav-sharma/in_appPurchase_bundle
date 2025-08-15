@@ -44,7 +44,7 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
    }
    for (int i = 0; i < subscriptionProductIds.length; i++) {
      String product = subscriptionProductIds[i];
-     AppLogs.showInfoLogs("product id ::${product}");
+     AppLogs.showInfoLogs("product id ::$product");
 
    }
 
@@ -92,7 +92,7 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
      );
 
      if(checkSubscriptionData != null){
-       isActive = checkSubscriptionData?["data"]["isActive"] == true;
+       isActive = checkSubscriptionData["data"]["isActive"] == true;
      }
 
      if (isActive) {
@@ -109,10 +109,7 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
              if (products[i].price != "Free" && products[i].rawPrice != 0.0) {
                matchedIndex = i;
                break; // Found paid version
-             } else if (matchedIndex == null) {
-               // Save free match only if no paid match is found yet
-               matchedIndex = i;
-             }
+             } else matchedIndex ??= i;
            }
          }
        }
@@ -366,7 +363,6 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
     return super.close();
   }
 
-  @override
   Future<void> dispose() {
     subscription?.cancel();
     return super.close();
