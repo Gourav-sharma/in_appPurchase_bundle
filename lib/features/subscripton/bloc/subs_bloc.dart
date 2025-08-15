@@ -90,14 +90,14 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
      selectedProductId: productsResponse.products?[state.selectedItem].id,
    ));
 
-     Map<String, dynamic>? checkSubscriptionData ;
-    if(checkSubscriptionApi.isNotEmpty) {
-      checkSubscriptionData = await service
-          .checkSubscription(
-          apiType: checkSubscriptonApiRequestType,
-          apiUrl: checkSubscriptionApi
-      );
-    }
+    //  Map<String, dynamic>? checkSubscriptionData ;
+    // if(checkSubscriptionApi.isNotEmpty) {
+    //   checkSubscriptionData = await service
+    //       .checkSubscription(
+    //       apiType: checkSubscriptonApiRequestType,
+    //       apiUrl: checkSubscriptionApi
+    //   );
+    // }
 
     //check subscription
    // if(checkSubscriptionApi.isNotEmpty){
