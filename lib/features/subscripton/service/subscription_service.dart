@@ -38,6 +38,7 @@ class SubscriptionService {
   }
 
   Future<List<ProductDetails>> loadProducts() async {
+    print("loadproducts calling:::::::::::::::::");
     final response = await inAppPurchase.queryProductDetails(_productIds.toSet());
     if (response.notFoundIDs.isNotEmpty) {
       throw Exception("Products not found: ${response.notFoundIDs}");
@@ -88,7 +89,7 @@ class SubscriptionService {
           changeSubscriptionParam: oldPurchase != null
               ? ChangeSubscriptionParam(
             oldPurchaseDetails: oldPurchase,
-            replacementMode: ReplacementMode.withTimeProration,
+            replacementMode: ReplacementMode.chargeFullPrice,
           )
               : null,
         );
@@ -179,26 +180,50 @@ class SubscriptionService {
     return map;
   }
 
-  Future<ProductDetails> selectedPlan(String expiryDate, List<ProductDetails> products, int selectedItem) async {
+  Future<ProductDetails> selectedPlan(String expiryDate, List<ProductDetails> products, int selectedItem, List<String> subscriptionProductIds) async {
     late ProductDetails productDetails;
+    AppLogs.showErrorLogs("selectedItem: $selectedItem");
     String selectedId = products[selectedItem].id;
     if (Platform.isAndroid) {
       if (expiryDate.isNotEmpty) {
+
         for (int i = 0; i < products.length; i++) {
-          if (products[i].id == selectedId) {
-            if (products[i].price != "Free" && products[i].rawPrice != 0.0) {
-              productDetails = products[i];
+          if (products[i].price != "Free" && products[i].rawPrice != 0.0) {
+          for (int j = 0; j < subscriptionProductIds.length; j++) {
+            if (products[i].id == subscriptionProductIds[j]) {
+              // Prefer paid subscriptions if available
+                productDetails = products[i];
+              }
             }
           }
         }
+
+        // for (int i = 0; i < products.length; i++) {
+        //   if (products[i].id == selectedId) {
+        //     if (products[i].price != "Free" && products[i].rawPrice != 0.0) {
+        //       productDetails = products[i];
+        //     }
+        //   }
+        // }
       }else{
         for (int i = 0; i < products.length; i++) {
-          if (products[i].id == selectedId) {
-            if (products[i].price == "Free" || products[i].rawPrice == 0.0) {
-              productDetails = products[i];
+          for (int j = 0; j < subscriptionProductIds.length; j++) {
+            if (products[i].id == subscriptionProductIds[j]) {
+              // Prefer paid subscriptions if available
+              if (products[i].price == "Free" && products[i].rawPrice == 0.0) {
+                productDetails = products[i];
+
+              }
             }
           }
         }
+        // for (int i = 0; i < products.length; i++) {
+        //   if (products[i].id == selectedId) {
+        //     if (products[i].price == "Free" || products[i].rawPrice == 0.0) {
+        //       productDetails = products[i];
+        //     }
+        //   }
+        // }
       }
     }else{
       productDetails = products[selectedItem];
