@@ -37,7 +37,7 @@ Widget build(BuildContext context) {
       checkSubscriptionApi: "",
       subscriptionProductIds: ["monthly_plan", "yearly_plan"],
     ),
-    child: const SubscriptionPage(),
+    child: const _ProductsBody(),
   );
 }
 ```
@@ -46,49 +46,82 @@ Widget build(BuildContext context) {
 Use `BlocBuilder` and `BlocListener` to react to state changes:
 
 ```dart
-class SubscriptionPage extends StatelessWidget {
+class _ProductsBody extends StatefulWidget {
+  const _ProductsBody({Key? key}) : super(key: key);
+
+  @override
+  State<_ProductsBody> createState() => _ProductsBodyState();
+}
+
+class _ProductsBodyState extends State<_ProductsBody> {
+  @override
+  void initState() {
+    super.initState();
+    // Dispatch here, when Bloc is ready and context is mounted
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<SubsBlocNew>().add(
+        SubscriptionInitEvent(context: context),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<SubsBlocNew>().state;
+
     return Scaffold(
-      appBar: AppBar(title: Text('In-App Subscription')),
-      body: BlocListener<SubsBlocNew, SubscriptionState>(
-        listener: (context, state) {
-          if (state.errorMessage != null && state.errorMessage!.isNotEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.errorMessage!), backgroundColor: Colors.red),
-            );
-          }
-        },
-        child: BlocBuilder<SubsBlocNew, SubscriptionState>(
-          builder: (context, state) {
-            if (state.loader == true) {
-              return Center(child: CircularProgressIndicator());
-            }
+      appBar: AppBar(
+        toolbarHeight: 50,
+        title: const Text("Products"),
+      ),
+      body: SizedBox(
+        height: MediaQuery.of(context).size.height,
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
 
-            if (state.isSubscribed == true) {
-              return Center(child: Text('You are successfully subscribed!'));
-            }
+              ListWidget(
+                itemCount: state.products.length,
+                itemBuilder: (p0, p1) {
+                  final product = state.products[p1];
 
-            return Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('Current Status: Not Subscribed', style: TextStyle(fontSize: 18)),
-                  SizedBox(height: 20),
-                  if (state.products.isNotEmpty)
-                    ElevatedButton(
-                      onPressed: () {
-                        BlocProvider.of<SubsBlocNew>(context).add(
-                          BuyProductEvent(context: context, selectedItem: state.selectedItem),
-                        );
-                      },
-                      child: Text('Buy ${state.products[state.selectedItem].title}'),
+                  // Skip rendering if it's free
+                  if (product.rawPrice == 0.0) {
+                    return const SizedBox.shrink();
+                  }
+                  return  GestureDetector(
+                    onTap: () {
+                      context.read<SubsBlocNew>().add(
+                        ChangeSelectedItemEvent(p1),
+                      );
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: state.products[state.selectedItem].id==product.id?
+                        Colors.green : Colors.lightGreenAccent,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: ListTile(
+                        title: Text(product.title),
+                        subtitle: Text(product.description),
+                        trailing: Text(product.price),
+                      ),
                     ),
-                ],
+                  );
+                },
               ),
-            );
-          },
+              CustomButton(
+                width: 50.sw,
+                text: "Subscribe",
+                onTap:() {
+                  context.read<SubsBlocNew>().add(
+                    BuyProductEvent(context: context, restore: false),
+                  );
+                },
+              )
+            ],
+          ),
         ),
       ),
     );

@@ -99,39 +99,6 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
       );
     }
 
-    // Group by productId
-    final Map<String, List<ProductDetails>> grouped = {};
-    for (var product in subscriptionProducts) {
-      grouped.putIfAbsent(product.id, () => []).add(product);
-    }
-
-// Pick preferred version (free trial if first time, paid if not)
-   List<ProductDetails> filteredProducts = [];
-   for (var entry in grouped.entries) {
-     bool hasPurchasedBefore = state.purchases.any((p) => p.productID == entry.key);
-
-     if (!hasPurchasedBefore) {
-       // First time: pick free trial if available
-       filteredProducts.add(
-           entry.value.firstWhere(
-                   (p) => p.price == "Free" && p.rawPrice == 0.0,
-               orElse: () => entry.value.first
-           )
-       );
-     } else {
-       // Returning: pick paid version
-       filteredProducts.add(
-           entry.value.firstWhere(
-                   (p) => p.price != "Free" && p.rawPrice > 0.0,
-               orElse: () => entry.value.first
-           )
-       );
-       emit(state.copyWith( isSubscribed: true,
-         subscriptionType: checkSubscriptionData?["data"]["subscriptionType"]?? 1,
-         subsExpiryDate: checkSubscriptionData?["data"]["expiryDate"]?? "",));
-     }
-   }
-
     //check subscription
    // if(checkSubscriptionApi.isNotEmpty){
    //   final Map<String, dynamic>? checkSubscriptionData = await service.checkSubscription(
@@ -208,11 +175,23 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
       return;
     }
     if (response.pastPurchases.isNotEmpty) {
+      for (int i = 0; i < response.pastPurchases.length; i++) {
+        final purchasedProductId = response.pastPurchases[i].productID;
 
-      for (var purchase in response.pastPurchases) {
-        if (purchase.status == PurchaseStatus.purchased) {
-          emit(state.copyWith(purchases: response.pastPurchases,pastSubscriptionId: purchase.productID));
-          break;
+        if (response.pastPurchases[i].status == PurchaseStatus.purchased) {
+          // Find matching index from state.products
+          final matchedIndex = state.products.indexWhere((p) => p.id == purchasedProductId);
+
+          emit(state.copyWith(
+            isSubscribed: true,
+            purchases: response.pastPurchases,
+            pastSubscriptionId: purchasedProductId,
+            selectedItem: matchedIndex != -1 ? matchedIndex : state.selectedItem,
+          ));
+
+          AppLogs.showInfoLogs("✅ Active subscription");
+          AppLogs.showInfoLogs("purchasedId: $purchasedProductId");
+          AppLogs.showInfoLogs("matchedIndex: $matchedIndex");
         }
       }
     }
@@ -233,15 +212,17 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
         );
       }
     }else{
-
-
-      ProductDetails purchaseProduct = await service.selectedPlan(state.subsExpiryDate,
-          state.products,state.selectedItem,
-          subscriptionProductIds,state.purchases);
-
-      await service.buyProduct(
-          purchaseProduct
-      );
+      if(state.isSubscribed == true){
+        add(DowngradeOrUpgradeEvent(context: context));
+      }else {
+        ProductDetails purchaseProduct = await service.selectedPlan(
+            state.subsExpiryDate,
+            state.products, state.selectedItem,
+            subscriptionProductIds, state.purchases);
+        await service.buyProduct(
+            purchaseProduct
+        );
+      }
     }
 
   }
@@ -251,6 +232,7 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
     final oldProductId = state.pastSubscriptionId;
     AppLogs.showInfoLogs("oldProductId: $oldProductId");
     AppLogs.showInfoLogs("state.selectedItem: ${state.selectedItem}");
+    AppLogs.showInfoLogs("state.selectedProductId: ${state.selectedProductId}");
     ProductDetails purchaseProduct = await service.selectedPlan(state.subsExpiryDate,state.products,state.selectedItem,
         subscriptionProductIds,state.purchases);
     AppLogs.showInfoLogs("purchaseProduct: ${purchaseProduct.price}");
@@ -279,16 +261,14 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
 
   Future<void> _onPurchaseUpdate(PurchaseUpdateEvent event, Emitter<SubscriptionState> emit) async {
 
-    for (var purchase in event.purchases) {
-      if (purchase.status == PurchaseStatus.purchased) {
-        service.inAppPurchase.completePurchase(purchase);
-        if(state.isClicked == true){
-          add(VerifyPurchaseEvent(purchaseDetails: purchase));
-
-
-        }
-      }
-    }
+    // for (var purchase in event.purchases) {
+    //   if (purchase.status == PurchaseStatus.purchased) {
+    //     service.inAppPurchase.completePurchase(purchase);
+    //     if(state.isClicked == true){
+    //       add(VerifyPurchaseEvent(purchaseDetails: purchase));
+    //     }
+    //   }
+    // }
 
     for (var purchase in event.purchases) {
       AppLogs.showInfoLogs("purchase.status: ${purchase.status}");
@@ -299,7 +279,12 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
           if (purchase.pendingCompletePurchase) {
             await service.inAppPurchase.completePurchase(purchase);
             if (state.isClicked==true) {
-              add(VerifyPurchaseEvent(purchaseDetails: purchase));
+              add(VerifyPurchaseEvent(purchaseDetails: purchase,
+              purchaseDetailsList: event.purchases,));
+              emit(state.copyWith(
+                pastSubscriptionId: purchase.productID,
+                isSubscribed: true
+              ));
             }
           }
           break;
@@ -308,7 +293,12 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
             await service.inAppPurchase.completePurchase(purchase);
           }
           if (state.isClicked==true) {
-            add(VerifyPurchaseEvent(purchaseDetails: purchase));
+            add(VerifyPurchaseEvent(purchaseDetails: purchase,
+                purchaseDetailsList: event.purchases));
+            emit(state.copyWith(
+                pastSubscriptionId: purchase.productID,
+                isSubscribed: true
+            ));
           }
           break;
         case PurchaseStatus.error:
@@ -351,6 +341,9 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
       AppLogs.showInfoLogs(
           "purchase receipt::::::::${Platform.isAndroid ? event.purchaseDetails.verificationData.serverVerificationData : event.purchaseDetails.verificationData.localVerificationData}");
       if (event.purchaseDetails.status == PurchaseStatus.purchased || event.purchaseDetails.status == PurchaseStatus.restored) {
+        emit(state.copyWith(isClicked: false,
+        purchases: event.purchaseDetailsList,
+        isSubscribed:true));
         SubscriptionRequest subsRequest = SubscriptionRequest(
           productId: event.purchaseDetails.productID,
           purchaseReceipt: Platform.isAndroid
@@ -360,7 +353,6 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
           deviceType: Platform.isAndroid ? 1 : 2,
           subscriptionType: state.subscriptionType ?? 1,
           transactionId: event.purchaseDetails.purchaseID ?? "",);
-
 
         add(SaveSubscriptionEvent(saveSubscriptionApiUrl:saveSubscriptionApiUrl,subsRequest: subsRequest ));
       }

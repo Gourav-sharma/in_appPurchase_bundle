@@ -9,3 +9,7 @@
 ## 0.0.3
 
 * Manage free or paid sheet for android in more easy way.
+
+## 0.0.4
+
+* Manage past purchase item and show as selected at app end without need any api call.
