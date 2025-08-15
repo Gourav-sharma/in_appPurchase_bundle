@@ -38,7 +38,7 @@ class SubscriptionService {
   }
 
   Future<List<ProductDetails>> loadProducts() async {
-    print("loadproducts calling:::::::::::::::::");
+    AppLogs.showInfoLogs("loadproducts calling:::::::::::::::::");
     final response = await inAppPurchase.queryProductDetails(_productIds.toSet());
     if (response.notFoundIDs.isNotEmpty) {
       throw Exception("Products not found: ${response.notFoundIDs}");

@@ -35,7 +35,7 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
 
  Future<void> initEvent(SubscriptionInitEvent event, Emitter<SubscriptionState> emit) async {
 
-    print("init event calling::::::::::::::::: $subscriptionProductIds");
+    AppLogs.showInfoLogs("init event calling::::::::::::::::: $subscriptionProductIds");
    //check products availability
    final isAvailable = await service.init(subscriptionProductIds);
    if (!isAvailable) {
