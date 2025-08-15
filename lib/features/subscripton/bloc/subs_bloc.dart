@@ -132,8 +132,6 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
      }
    }
 
-   bool isActive = false;
-
     //check subscription
    // if(checkSubscriptionApi.isNotEmpty){
    //   final Map<String, dynamic>? checkSubscriptionData = await service.checkSubscription(
