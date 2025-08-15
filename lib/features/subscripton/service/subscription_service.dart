@@ -183,7 +183,6 @@ class SubscriptionService {
   Future<ProductDetails> selectedPlan(String expiryDate, List<ProductDetails> products, int selectedItem, List<String> subscriptionProductIds) async {
     late ProductDetails productDetails;
     AppLogs.showErrorLogs("selectedItem: $selectedItem");
-    String selectedId = products[selectedItem].id;
     if (Platform.isAndroid) {
       if (expiryDate.isNotEmpty) {
 

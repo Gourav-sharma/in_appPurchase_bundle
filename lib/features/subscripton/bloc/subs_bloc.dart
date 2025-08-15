@@ -109,7 +109,9 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
              if (products[i].price != "Free" && products[i].rawPrice != 0.0) {
                matchedIndex = i;
                break; // Found paid version
-             } else matchedIndex ??= i;
+             } else {
+               matchedIndex ??= i;
+             }
            }
          }
        }
