@@ -17,3 +17,7 @@
 ## 0.0.5
 
 * Handle expired subscription from play console function added for android.
+
+## 0.0.6
+
+* Handle past subscription for IOS using appStoreKit.

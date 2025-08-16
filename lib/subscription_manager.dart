@@ -15,6 +15,14 @@ class InAppSubscriptionPlugin {
       checkSubscriptonApiRequestType: checkSubscriptonApiRequestType ?? RequestType.get,
       saveSubscriptionApiUrl: saveSubscriptionApiUrl ?? "",
       subscriptionProductIds: subscriptionProductIds ?? [],
+      subscriptionPlans: {
+        "monthly_plan": kDebugMode
+            ? const Duration(minutes: 5)
+            : const Duration(days: 30),
+        "yearly_plan": kDebugMode
+            ? const Duration(minutes: 30)
+            : const Duration(days: 365),
+      },
     );
   }
 }

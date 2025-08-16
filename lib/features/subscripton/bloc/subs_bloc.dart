@@ -1,5 +1,7 @@
 
+import 'package:http/http.dart' as http;
 import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
+import 'package:in_app_purchase_storekit/store_kit_2_wrappers.dart' as PurchaseSource;
 
 import '../../../in_app_subscription_bundle.dart';
 
@@ -18,12 +20,15 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
   late  PurchaseDetails purchaseDetail;
   List<String> notFoundIds = <String>[];
 
+  /// Product IDs with durations (testing + production)
+  final Map<String, Duration> subscriptionPlans;
 
   SubsBlocNew({required this.context,
      this.checkSubscriptionApi = "",
      this.checkSubscriptonApiRequestType = RequestType.get,
      this.saveSubscriptionApiUrl = "",
       required this.subscriptionProductIds,
+      required this.subscriptionPlans
   }) : super(SubscriptionState()) {
     on<SubscriptionInitEvent>(initEvent);
     on<VerifyPurchaseEvent>(verifyPurchaseEvent);
@@ -159,52 +164,72 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
     emit(state.copyWith(loader: false));
 
     //get old purchase from android
-    if (Platform.isAndroid) {
-      add(GetOldPurchaseEvent());
-    }else{
-      final InAppPurchaseStoreKitPlatformAddition iosPlatformAddition =
-      inAppPurchase.getPlatformAddition<InAppPurchaseStoreKitPlatformAddition>();
-      await iosPlatformAddition.setDelegate(ExamplePaymentQueueDelegate());
-
-    }
+    add(GetOldPurchaseEvent());
 
   }
 
  Future<void> getOldPurchaseEvent(GetOldPurchaseEvent event,Emitter<SubscriptionState> emit) async {
-    final InAppPurchaseAndroidPlatformAddition androidAddition =
-    inAppPurchase.getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
 
-    final QueryPurchaseDetailsResponse response = await androidAddition.queryPastPurchases();
+    List<PurchaseDetails> pastPurchases = [];
+    if(Platform.isAndroid){
+      final InAppPurchaseAndroidPlatformAddition androidAddition =
+      inAppPurchase.getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
 
-    if (response.error != null) {
+      final QueryPurchaseDetailsResponse response =
+      await androidAddition.queryPastPurchases();
+
+      if (response.error != null) {
+        AppLogs.showErrorLogs("Android past purchase error: ${response.error}");
+        return;
+      }
+      pastPurchases = response.pastPurchases;
+    }else if (Platform.isIOS) {
+      pastPurchases = await getIosPastPurchases();
+    }
+
+    if (pastPurchases.isEmpty) {
+      AppLogs.showInfoLogs("No past purchases found");
+      emit(state.copyWith(isSubscribed: false));
       return;
     }
-    if (response.pastPurchases.isNotEmpty) {
-      for (int i = 0; i < response.pastPurchases.length; i++) {
-        final purchasedProductId = response.pastPurchases[i].productID;
-        final data = jsonDecode(response.pastPurchases[i].billingClientPurchase.originalJson);
-        AppLogs.showInfoLogs("Purchase JSON: $data");
-        final isAutoRenewing = data['autoRenewing'] ?? false;
 
-        if (response.pastPurchases[i].status == PurchaseStatus.purchased) {
+    for (final purchase in pastPurchases) {
+      final purchasedProductId = purchase.productID;
 
-          final paidIndex = state.products.indexWhere((p) => p.id == purchasedProductId);
-          AppLogs.showInfoLogs("paidIndex: $paidIndex");
-          AppLogs.showInfoLogs("purchasedProductId: ${response.pastPurchases[i].productID}");
-          emit(state.copyWith(
-            isSubscribed: isAutoRenewing == true ? true : false,
-            purchases: response.pastPurchases,
-            selectedProductId: purchasedProductId,
-            pastSubscriptionId: purchasedProductId,
-            selectedItem: isAutoRenewing == true ? paidIndex : 0,
-          ));
+      int purchaseTime = 0;
+      if (Platform.isAndroid) {
+        final data = jsonDecode(
+            (purchase as GooglePlayPurchaseDetails).billingClientPurchase.originalJson);
+        purchaseTime = data['purchaseTime'] ?? 0;
+      } else if (Platform.isIOS) {
+        purchaseTime = int.tryParse(purchase.transactionDate ?? "0") ?? 0;
+      }
 
-          AppLogs.showInfoLogs("${isAutoRenewing == true ? "✅ Active subscription" : "❌ Inactive subscription"}");
-          AppLogs.showInfoLogs("purchasedId: $purchasedProductId");
-          AppLogs.showInfoLogs("paidIndex (UI index): $paidIndex");
+      final duration =
+          subscriptionPlans[purchasedProductId] ?? const Duration(days: 30);
 
-          break; // stop after first match
-        }
+      final expiryDate =
+      DateTime.fromMillisecondsSinceEpoch(purchaseTime).add(duration);
+      final isExpired = DateTime.now().isAfter(expiryDate);
+      final isSubscribed = !isExpired;
+
+      if (purchase.status == PurchaseStatus.purchased) {
+        final paidIndex =
+        state.products.indexWhere((p) => p.id == purchasedProductId);
+
+        emit(state.copyWith(
+          isSubscribed: isSubscribed,
+          purchases: pastPurchases,
+          selectedProductId: purchasedProductId,
+          pastSubscriptionId: purchasedProductId,
+          selectedItem: isSubscribed ? paidIndex : 0,
+        ));
+
+        AppLogs.showInfoLogs(
+          "${isSubscribed ? "✅ Active" : "❌ Expired"} | productId: $purchasedProductId",
+        );
+
+        break; // handle first valid purchase only
       }
     }
 
@@ -272,15 +297,6 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
   }
 
   Future<void> _onPurchaseUpdate(PurchaseUpdateEvent event, Emitter<SubscriptionState> emit) async {
-
-    // for (var purchase in event.purchases) {
-    //   if (purchase.status == PurchaseStatus.purchased) {
-    //     service.inAppPurchase.completePurchase(purchase);
-    //     if(state.isClicked == true){
-    //       add(VerifyPurchaseEvent(purchaseDetails: purchase));
-    //     }
-    //   }
-    // }
 
     for (var purchase in event.purchases) {
       AppLogs.showInfoLogs("purchase.status: ${purchase.status}");
@@ -412,6 +428,130 @@ class SubsBlocNew extends Bloc<SubscriptionEvent, SubscriptionState> {
     // If neither "Monthly" nor "Yearly" is found, return the original input
     return input;
   }
+
+  Future<String?> _getReceiptData() async {
+    final receiptData = await SKReceiptManager.retrieveReceiptData();
+    return receiptData; // base64-encoded string
+  }
+
+  Future<Map<String, dynamic>> verifyReceipt(String receiptData, {bool isSandbox = true}) async {
+    final url = isSandbox
+        ? 'https://sandbox.itunes.apple.com/verifyReceipt'
+        : 'https://buy.itunes.apple.com/verifyReceipt';
+
+    final payload = jsonEncode({
+      "receipt-data": receiptData,
+      "password": "YOUR_SHARED_SECRET", // App-Specific Shared Secret from App Store Connect
+      "exclude-old-transactions": true
+    });
+
+    final response = await http.post(
+      Uri.parse(url),
+      body: payload,
+      headers: {"Content-Type": "application/json"},
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception("Failed to verify receipt: ${response.body}");
+    }
+  }
+
+  Future<List<PurchaseDetails>> getIosPastPurchases() async {
+    // Step 1: Get local transactions
+    final transactions = await SKPaymentQueueWrapper().transactions();
+    final List<PurchaseDetails> purchases = [];
+
+    for (final txn in transactions) {
+      purchases.add(PurchaseDetails(
+        purchaseID: txn.transactionIdentifier,
+        productID: txn.payment.productIdentifier,
+        transactionDate: txn.transactionTimeStamp != null
+            ? (txn.transactionTimeStamp! * 1000).toInt().toString()
+            : "0",
+        status: PurchaseStatus.purchased,
+        verificationData: PurchaseVerificationData(
+          localVerificationData: "",
+          serverVerificationData: "",
+          source: "appstore",
+        ),
+      ));
+    }
+
+    // Step 2: Get receipt data from device
+    final receiptData = await _getReceiptData();
+    if (receiptData != null) {
+      final receipt = await verifyReceipt(receiptData, isSandbox: true);
+
+      // Parse expiry info from receipt
+      final latestReceiptInfo = receipt['latest_receipt_info'] as List<dynamic>? ?? [];
+      for (final item in latestReceiptInfo) {
+        final productId = item['product_id'];
+        final expiresDateMs = int.tryParse(item['expires_date_ms'] ?? "0") ?? 0;
+
+        final expiryDate = DateTime.fromMillisecondsSinceEpoch(expiresDateMs);
+        final isExpired = DateTime.now().isAfter(expiryDate);
+
+        AppLogs.showInfoLogs(
+          "iOS Receipt: $productId expires at $expiryDate | Active: ${!isExpired}",
+        );
+      }
+    }
+
+    return purchases;
+  }
+
+  Future<Map<String, dynamic>> checkActiveSubscription() async {
+    try {
+      final transactions = await SKPaymentQueueWrapper().transactions();
+
+      for (final txn in transactions) {
+        final productId = txn.payment.productIdentifier;
+        final purchaseDateMs =
+            int.tryParse(txn.transactionTimeStamp.toString()) ?? 0;
+
+        // Assume fixed duration per product (like Android logic)
+        final duration =
+            subscriptionPlans[productId] ?? const Duration(days: 30);
+
+        final expiryDate =
+        DateTime.fromMillisecondsSinceEpoch(purchaseDateMs).add(duration);
+        final isExpired = DateTime.now().isAfter(expiryDate);
+
+        if (!isExpired) {
+          return {
+            "isSubscribed": true,
+            "productId": productId,
+            "expiryDate": expiryDate,
+          };
+        }
+      }
+      return {"isSubscribed": false};
+    } catch (e) {
+      AppLogs.showErrorLogs("iOS subscription check failed: $e");
+      return {"isSubscribed": false};
+    }
+  }
+
+  // Future<bool> checkActiveSubscription() async {
+  //   final receipt = await _getReceiptData();
+  //   if (receipt == null) return false;
+  //
+  //   final result = await verifyReceipt(receipt, isSandbox: true); // switch to false in production
+  //
+  //   if (result["status"] != 0) return false;
+  //
+  //   final latest = result["latest_receipt_info"]?.last;
+  //   if (latest == null) return false;
+  //
+  //   final expiresMs = int.tryParse(latest["expires_date_ms"] ?? "0") ?? 0;
+  //   final expiryDate = DateTime.fromMillisecondsSinceEpoch(expiresMs);
+  //
+  //   final isCancelled = latest["cancellation_date"] != null;
+  //
+  //   return !isCancelled && DateTime.now().isBefore(expiryDate);
+  // }
 
   @override
   Future<void> close() {
