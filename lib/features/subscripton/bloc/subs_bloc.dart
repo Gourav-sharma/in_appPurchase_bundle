@@ -1,7 +1,5 @@
 
 import 'package:http/http.dart' as http;
-import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
-import 'package:in_app_purchase_storekit/store_kit_2_wrappers.dart' as PurchaseSource;
 
 import '../../../in_app_subscription_bundle.dart';
 
